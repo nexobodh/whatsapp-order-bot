@@ -10,16 +10,6 @@ API_TOKEN = os.getenv("API_TOKEN")
 
 GREEN_API_BASE_URL = f"https://api.green-api.com/waInstance{INSTANCE_ID}"
 
-# সম্পূর্ণ মেসেজ থেকে সব ডাটা রিড করার জন্য অ্যাডভান্সড Regex
-ORDER_PARSER = re.compile(
-    r"Order Reference:\s*(?P[^\n]+)\n"
-    r"Service:\s*(?P[^\n]+)\n"
-    r"(?:Amount:\s*(?P[^\n]+)\n)?"
-    r"(?:Customer:\s*(?P[^\n]+)\n)?"
-    r"Mobile:\s*(?P(\+?88)?01[3-9]\d{8})",
-    re.DOTALL | re.IGNORECASE
-)
-
 def send_whatsapp_message(chat_id, text):
     url = f"{GREEN_API_BASE_URL}/sendMessage/{API_TOKEN}"
     payload = {"chatId": chat_id, "message": text}
@@ -48,21 +38,22 @@ def webhook():
         message_data.get("extendedTextMessageData", {}).get("text") or ""
     )
 
-    match = ORDER_PARSER.search(text_message)
-    if match:
-        extracted = match.groupdict()
-        order_ref = extracted.get('order_ref', '').strip()
-        service = extracted.get('service', '').strip()
-        customer = extracted.get('customer', 'Customer').strip()
-        mobile = extracted.get('mobile', '').strip()
+    # Simple & error-free Regex pattern extraction
+    order_match = re.search(r"Order Reference:\s*([^\n]+)", text_message, re.IGNORECASE)
+    service_match = re.search(r"Service:\s*([^\n]+)", text_message, re.IGNORECASE)
+    mobile_match = re.search(r"Mobile:\s*((\+?88)?01[3-9]\d{8})", text_message, re.IGNORECASE)
 
-        # ডায়নামিক কাস্টম রিপ্লাই মেসেজ
+    if order_match and mobile_match:
+        order_ref = order_match.group(1).strip()
+        service = service_match.group(1).strip() if service_match else "N/A"
+        mobile = mobile_match.group(1).strip()
+
         reply_text = (
-            f"ধন্যবাদ {customer}!\n\n"
-            f"আপনার অর্ডারটি আমরা সফলভাবে রিসিভ করেছি।\n"
-            f"• Order Ref: {order_ref}\n"
+            f"ধন্যবাদ!\n\n"
+            f"আপনার অর্ডারটি আমরা সফলভাবে পেয়েছি।\n"
+            f"• Order Reference: {order_ref}\n"
             f"• Service: {service}\n\n"
-            f"আমরা খুব দ্রুত আপনার মোবাইল নম্বর ({mobile})-এ যোগাযোগ করব।"
+            f"আমরা দ্রুত আপনার মোবাইল নম্বর ({mobile})-এ যোগাযোগ করব।"
         )
         
         send_whatsapp_message(chat_id, reply_text)
